@@ -1,0 +1,1 @@
+ALTER TABLE `orders` ADD `privacy_accepted_at` text NOT NULL;
