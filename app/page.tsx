@@ -9,6 +9,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { GiftList } from '@/components/gift-list';
 import { getPublicContent } from '@/db/queries';
+import { isAsaasConfigured } from '@/lib/asaas';
 
 function eventParts(iso: string, timeZone: string) {
   const date = new Date(iso);
@@ -39,6 +40,7 @@ export const dynamic = 'force-dynamic';
 
 export default async function Home() {
   const { wedding, gifts, usingDemo } = await getPublicContent();
+  const paymentsEnabled = !usingDemo && isAsaasConfigured();
   const date = eventParts(wedding.eventAt, wedding.timezone);
   const storyParagraphs = wedding.story.split(/\n{2,}/).filter(Boolean);
   const details = [
@@ -67,9 +69,11 @@ export default async function Home() {
       <a className="skip-link" href="#conteudo">
         Pular para o conteúdo
       </a>
-      {usingDemo && (
+      {!paymentsEnabled && (
         <div className="demo-ribbon">
-          Conteúdo de demonstração · pagamentos ainda desativados
+          {usingDemo
+            ? 'Conteúdo de demonstração · pagamentos ainda desativados'
+            : 'Pagamentos em configuração'}
         </div>
       )}
       <header className="site-header">
@@ -183,7 +187,7 @@ export default async function Home() {
               contribuição financeira.
             </p>
           </div>
-          <GiftList gifts={gifts} paymentsEnabled={!usingDemo} />
+          <GiftList gifts={gifts} paymentsEnabled={paymentsEnabled} />
         </section>
       </main>
 

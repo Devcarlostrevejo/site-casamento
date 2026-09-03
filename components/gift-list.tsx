@@ -147,6 +147,11 @@ export function GiftList({
             },
             annotations: { readOnlyHint: false, untrustedContentHint: false },
             execute(input: unknown) {
+              if (!paymentsEnabled) {
+                throw new Error(
+                  'Os pagamentos ainda estão sendo configurados pelo casal.',
+                );
+              }
               const giftId =
                 typeof input === 'object' && input !== null && 'giftId' in input
                   ? String((input as { giftId: unknown }).giftId)
@@ -171,7 +176,7 @@ export function GiftList({
       return;
     }
     return () => lifecycle.abort();
-  }, [gifts]);
+  }, [gifts, paymentsEnabled]);
 
   useEffect(() => {
     if (!result?.order.publicId || stage !== 'payment') return;
@@ -212,7 +217,11 @@ export function GiftList({
     event: React.SyntheticEvent<HTMLFormElement, SubmitEvent>,
   ) {
     event.preventDefault();
-    if (!selectedGift || !paymentsEnabled) return;
+    if (!selectedGift) return;
+    if (!paymentsEnabled) {
+      setError('Os pagamentos ainda estão sendo configurados pelo casal.');
+      return;
+    }
     const activeRequestId = requestId ?? crypto.randomUUID();
     setRequestId(activeRequestId);
     setStage('processing');

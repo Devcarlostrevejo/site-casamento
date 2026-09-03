@@ -43,6 +43,10 @@ function config() {
   return { apiKey, apiUrl: apiUrl.replace(/\/$/, '') };
 }
 
+export function isAsaasConfigured() {
+  return Boolean(env.ASAAS_API_KEY);
+}
+
 async function asaasFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const { apiKey, apiUrl } = config();
   const controller = new AbortController();
