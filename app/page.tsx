@@ -40,7 +40,8 @@ export const dynamic = 'force-dynamic';
 
 export default async function Home() {
   const { wedding, gifts, usingDemo } = await getPublicContent();
-  const paymentsEnabled = !usingDemo && isAsaasConfigured();
+  const paymentsEnabled = !usingDemo;
+  const cardEnabled = paymentsEnabled && isAsaasConfigured();
   const date = eventParts(wedding.eventAt, wedding.timezone);
   const storyParagraphs = wedding.story.split(/\n{2,}/).filter(Boolean);
   const details = [
@@ -187,7 +188,11 @@ export default async function Home() {
               contribuição financeira.
             </p>
           </div>
-          <GiftList gifts={gifts} paymentsEnabled={paymentsEnabled} />
+          <GiftList
+            cardEnabled={cardEnabled}
+            gifts={gifts}
+            paymentsEnabled={paymentsEnabled}
+          />
         </section>
       </main>
 

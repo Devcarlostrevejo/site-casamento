@@ -103,18 +103,38 @@ export async function POST(request: Request) {
     let order = providerPaymentId
       ? await db
           .prepare(
-            `SELECT id, status, settlement_status AS settlementStatus FROM orders WHERE provider_payment_id = ? LIMIT 1`,
+            `SELECT id, wedding_id AS weddingId, guest_name AS guestName,
+              amount_in_cents AS amountInCents, status,
+              settlement_status AS settlementStatus FROM orders
+              WHERE provider_payment_id = ? LIMIT 1`,
           )
           .bind(providerPaymentId)
-          .first<{ id: string; status: string; settlementStatus: string }>()
+          .first<{
+            id: string;
+            weddingId: string;
+            guestName: string;
+            amountInCents: number;
+            status: string;
+            settlementStatus: string;
+          }>()
       : null;
     if (!order && externalReference) {
       order = await db
         .prepare(
-          `SELECT id, status, settlement_status AS settlementStatus FROM orders WHERE public_id = ? LIMIT 1`,
+          `SELECT id, wedding_id AS weddingId, guest_name AS guestName,
+            amount_in_cents AS amountInCents, status,
+            settlement_status AS settlementStatus FROM orders
+            WHERE public_id = ? LIMIT 1`,
         )
         .bind(externalReference)
-        .first<{ id: string; status: string; settlementStatus: string }>();
+        .first<{
+          id: string;
+          weddingId: string;
+          guestName: string;
+          amountInCents: number;
+          status: string;
+          settlementStatus: string;
+        }>();
     }
     const mapped = mapAsaasEvent(payload.event);
     if (order && (mapped.status || mapped.settlementStatus)) {
@@ -123,7 +143,7 @@ export async function POST(request: Request) {
         order.settlementStatus,
         mapped.settlementStatus,
       );
-      await db.batch([
+      const statements = [
         db
           .prepare(`UPDATE orders SET status = ?, settlement_status = ?,
           confirmed_at = CASE WHEN ? = 'CONFIRMED' THEN COALESCE(confirmed_at, ?) ELSE confirmed_at END,
@@ -134,7 +154,28 @@ export async function POST(request: Request) {
             `UPDATE webhook_events SET processing_status = 'PROCESSED', processed_at = ? WHERE provider_event_id = ?`,
           )
           .bind(new Date().toISOString(), payload.id),
-      ]);
+      ];
+      if (nextStatus === 'CONFIRMED' && order.status !== 'CONFIRMED') {
+        const formattedAmount = new Intl.NumberFormat('pt-BR', {
+          style: 'currency',
+          currency: 'BRL',
+        }).format(order.amountInCents / 100);
+        statements.push(
+          db
+            .prepare(`INSERT OR IGNORE INTO admin_notifications
+            (id, wedding_id, order_id, dedupe_key, type, title, message, created_at)
+            VALUES (?, ?, ?, ?, 'CARD_CONFIRMED', 'Cartão confirmado', ?, ?)`)
+            .bind(
+              crypto.randomUUID(),
+              order.weddingId,
+              order.id,
+              `card-confirmed:${order.id}`,
+              `${order.guestName} enviou ${formattedAmount} por cartão. O pagamento foi confirmado pelo Asaas.`,
+              now,
+            ),
+        );
+      }
+      await db.batch(statements);
       return Response.json({ received: true });
     }
     const isOurReference = Boolean(

@@ -19,10 +19,11 @@ export default function PrivacyPage() {
 
         <h2>Dados coletados</h2>
         <p>
-          Ao iniciar um pagamento, coletamos nome, e-mail, CPF ou CNPJ, mensagem
-          opcional, presente escolhido e informações sobre o estado da cobrança.
-          Os dados do cartão não passam por este site: são preenchidos na página
-          segura do Asaas.
+          Ao iniciar um pagamento, coletamos nome, e-mail, mensagem opcional,
+          presente escolhido e informações sobre o estado da contribuição. CPF
+          ou CNPJ é solicitado somente para o pagamento por cartão. Os dados do
+          cartão não passam por este site: são preenchidos na página segura do
+          Asaas.
         </p>
 
         <h2>Como usamos os dados</h2>
@@ -36,9 +37,11 @@ export default function PrivacyPage() {
 
         <h2>Compartilhamento e armazenamento</h2>
         <p>
-          Os dados necessários ao pagamento são enviados ao Asaas, responsável
-          pelo processamento financeiro. As informações do pedido ficam
-          armazenadas na infraestrutura do site pelo período necessário à
+          No Pix, o QR Code aponta diretamente para a chave cadastrada pelo
+          casal, e a confirmação é feita manualmente após a conferência do
+          extrato. No cartão, os dados necessários são enviados ao Asaas,
+          responsável pelo processamento financeiro. As informações do pedido
+          ficam armazenadas na infraestrutura do site pelo período necessário à
           operação e às obrigações legais. Não vendemos dados pessoais.
         </p>
 

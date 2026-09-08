@@ -15,6 +15,13 @@
       "when": 1788441789006,
       "tag": "0001_fine_supreme_intelligence",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1788868297084,
+      "tag": "0002_regular_jackal",
+      "breakpoints": true
     }
   ]
 }

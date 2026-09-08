@@ -24,6 +24,11 @@ export const weddings = sqliteTable('weddings', {
   venueInstructions: text('venue_instructions').notNull().default(''),
   mapsUrl: text('maps_url'),
   heroImageUrl: text('hero_image_url'),
+  pixKey: text('pix_key').notNull().default('casamentoHevilaCarlos@gmail.com'),
+  pixRecipientName: text('pix_recipient_name')
+    .notNull()
+    .default('HEVILA E CARLOS'),
+  pixRecipientCity: text('pix_recipient_city').notNull().default('SAO PAULO'),
   published: integer('published', { mode: 'boolean' }).notNull().default(false),
   createdAt: text('created_at').notNull(),
   updatedAt: text('updated_at').notNull(),
@@ -128,6 +133,32 @@ export const webhookEvents = sqliteTable(
   },
   (table) => [
     index('idx_webhook_provider_payment').on(table.providerPaymentId),
+  ],
+);
+
+export const adminNotifications = sqliteTable(
+  'admin_notifications',
+  {
+    id: text('id').primaryKey(),
+    weddingId: text('wedding_id')
+      .notNull()
+      .references(() => weddings.id),
+    orderId: text('order_id')
+      .notNull()
+      .references(() => orders.id),
+    dedupeKey: text('dedupe_key').notNull().unique(),
+    type: text('type').notNull(),
+    title: text('title').notNull(),
+    message: text('message').notNull(),
+    readAt: text('read_at'),
+    createdAt: text('created_at').notNull(),
+  },
+  (table) => [
+    index('idx_notifications_wedding_created').on(
+      table.weddingId,
+      table.createdAt,
+    ),
+    index('idx_notifications_wedding_read').on(table.weddingId, table.readAt),
   ],
 );
 

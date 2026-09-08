@@ -1,6 +1,4 @@
 import { env } from 'cloudflare:workers';
-import type { PaymentMethod } from '@/lib/domain';
-
 export type AsaasCustomer = { id: string };
 export type AsaasPayment = {
   id: string;
@@ -11,12 +9,6 @@ export type AsaasPayment = {
 };
 
 type AsaasCollection<T> = { data?: T[] };
-
-type AsaasPixQrCode = {
-  encodedImage: string;
-  payload: string;
-  expirationDate: string;
-};
 
 export class PaymentProviderError extends Error {
   constructor(
@@ -112,14 +104,12 @@ export async function findAsaasCustomerByExternalReference(
   return result.data?.[0] ?? null;
 }
 
-export async function createAsaasCharge(input: {
+export async function createAsaasCardCharge(input: {
   customerId: string;
-  method: PaymentMethod;
   amountInCents: number;
   description: string;
   externalReference: string;
 }) {
-  const billingType = input.method === 'CARD' ? 'CREDIT_CARD' : input.method;
   const dueDate = new Date(Date.now() + 24 * 60 * 60 * 1_000)
     .toISOString()
     .slice(0, 10);
@@ -127,7 +117,7 @@ export async function createAsaasCharge(input: {
     method: 'POST',
     body: JSON.stringify({
       customer: input.customerId,
-      billingType,
+      billingType: 'CREDIT_CARD',
       value: input.amountInCents / 100,
       dueDate,
       description: input.description,
@@ -135,14 +125,7 @@ export async function createAsaasCharge(input: {
     }),
   });
 
-  const pix =
-    input.method === 'PIX'
-      ? await asaasFetch<AsaasPixQrCode>(
-          `/payments/${encodeURIComponent(payment.id)}/pixQrCode`,
-        )
-      : null;
-
-  return { payment, pix };
+  return { payment };
 }
 
 export async function getAsaasPayment(paymentId: string) {
@@ -156,10 +139,4 @@ export async function findAsaasPaymentByExternalReference(
     `/payments?externalReference=${encodeURIComponent(externalReference)}&limit=1`,
   );
   return result.data?.[0] ?? null;
-}
-
-export async function getAsaasPixQrCode(paymentId: string) {
-  return asaasFetch<AsaasPixQrCode>(
-    `/payments/${encodeURIComponent(paymentId)}/pixQrCode`,
-  );
 }

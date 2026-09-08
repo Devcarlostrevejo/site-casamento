@@ -13,6 +13,7 @@ import {
   isSameOriginRequest,
   sha256Hex,
 } from '../lib/security';
+import { createPixPayload } from '../lib/pix';
 
 describe('validação do pagador', () => {
   it('aceita e normaliza CPF e CNPJ válidos', () => {
@@ -41,6 +42,29 @@ describe('validação do pagador', () => {
         cpfCnpj: '111.111.111-11',
         paymentMethod: 'PIX',
         privacyAccepted: false,
+      }).success,
+    ).toBe(false);
+  });
+
+  it('não exige documento no Pix e remove boleto das opções', () => {
+    expect(
+      createOrderSchema.safeParse({
+        giftId: 'gift_1',
+        clientRequestId: crypto.randomUUID(),
+        guestName: 'Maria Silva',
+        guestEmail: 'maria@example.com',
+        paymentMethod: 'PIX',
+        privacyAccepted: true,
+      }).success,
+    ).toBe(true);
+    expect(
+      createOrderSchema.safeParse({
+        giftId: 'gift_1',
+        clientRequestId: crypto.randomUUID(),
+        guestName: 'Maria Silva',
+        guestEmail: 'maria@example.com',
+        paymentMethod: 'BOLETO',
+        privacyAccepted: true,
       }).success,
     ).toBe(false);
   });
@@ -74,6 +98,19 @@ describe('utilitários', () => {
   it('gera slug e moeda brasileira previsíveis', () => {
     expect(slugify('Jantar Especial à Dois!')).toBe('jantar-especial-a-dois');
     expect(formatBrlFromCents(12345)).toContain('123,45');
+  });
+
+  it('gera Pix copia e cola com valor, chave e CRC', () => {
+    const payload = createPixPayload({
+      key: 'casamento@example.com',
+      recipientName: 'Hévila e Carlos',
+      recipientCity: 'São Paulo',
+      amountInCents: 12345,
+      transactionId: 'pedido-123',
+    });
+    expect(payload).toContain('casamento@example.com');
+    expect(payload).toContain('123.45');
+    expect(payload).toMatch(/6304[A-F0-9]{4}$/);
   });
 
   it('compara segredos e gera hash estável', async () => {

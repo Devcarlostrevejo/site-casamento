@@ -26,6 +26,15 @@ export type AdminOrderRow = {
   createdAt: string;
   giftTitle: string;
 };
+export type AdminNotificationRow = {
+  id: string;
+  type: string;
+  title: string;
+  message: string;
+  readAt: string | null;
+  createdAt: string;
+  orderPublicId: string;
+};
 
 function database() {
   if (!env.DB) throw new Error('D1 binding DB não está disponível.');
@@ -45,7 +54,8 @@ export async function getPublicContent(): Promise<{
         event_at AS eventAt, timezone, headline, welcome_text AS welcomeText,
         story_title AS storyTitle, story, venue_name AS venueName,
         venue_address AS venueAddress, venue_instructions AS venueInstructions,
-        maps_url AS mapsUrl, hero_image_url AS heroImageUrl, published
+        maps_url AS mapsUrl, hero_image_url AS heroImageUrl, pix_key AS pixKey,
+        pix_recipient_name AS pixRecipientName, pix_recipient_city AS pixRecipientCity, published
       FROM weddings WHERE published = 1 ORDER BY created_at LIMIT 1
     `)
       .first<DbWeddingRow>();
@@ -95,7 +105,8 @@ export async function getAdminContent() {
       event_at AS eventAt, timezone, headline, welcome_text AS welcomeText,
       story_title AS storyTitle, story, venue_name AS venueName,
       venue_address AS venueAddress, venue_instructions AS venueInstructions,
-      maps_url AS mapsUrl, hero_image_url AS heroImageUrl, published
+      maps_url AS mapsUrl, hero_image_url AS heroImageUrl, pix_key AS pixKey,
+      pix_recipient_name AS pixRecipientName, pix_recipient_city AS pixRecipientCity, published
     FROM weddings ORDER BY created_at LIMIT 1
   `)
     .first<DbWeddingRow>();
@@ -117,6 +128,14 @@ export async function getAdminContent() {
     ORDER BY o.created_at DESC LIMIT 200
   `)
     .all<AdminOrderRow>();
+  const notificationsResult = await db
+    .prepare(`
+    SELECT n.id, n.type, n.title, n.message, n.read_at AS readAt,
+      n.created_at AS createdAt, o.public_id AS orderPublicId
+    FROM admin_notifications n JOIN orders o ON o.id = n.order_id
+    ORDER BY n.created_at DESC LIMIT 50
+  `)
+    .all<AdminNotificationRow>();
   return {
     wedding: wedding
       ? {
@@ -132,6 +151,7 @@ export async function getAdminContent() {
       active: Boolean(gift.active),
     })),
     orders: ordersResult.results,
+    notifications: notificationsResult.results,
   };
 }
 
@@ -143,8 +163,8 @@ export async function seedDemoData(actorUserId: string) {
       .prepare(`INSERT OR IGNORE INTO weddings
       (id, slug, partner_one_name, partner_two_name, event_at, timezone, headline, welcome_text,
        story_title, story, venue_name, venue_address, venue_instructions, maps_url, hero_image_url,
-       published, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+       pix_key, pix_recipient_name, pix_recipient_city, published, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
       .bind(
         DEMO_WEDDING_ID,
         demoWedding.slug,
@@ -161,6 +181,9 @@ export async function seedDemoData(actorUserId: string) {
         demoWedding.venueInstructions,
         demoWedding.mapsUrl,
         demoWedding.heroImageUrl,
+        demoWedding.pixKey,
+        demoWedding.pixRecipientName,
+        demoWedding.pixRecipientCity,
         1,
         now,
         now,

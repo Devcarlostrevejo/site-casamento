@@ -1,8 +1,12 @@
 'use client';
 
 import Link from 'next/link';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  Bell,
+  BellRing,
+  CheckCircle2,
+  CreditCard,
   ExternalLink,
   Gift,
   Heart,
@@ -11,6 +15,7 @@ import {
   LogOut,
   Pencil,
   Plus,
+  QrCode,
   ReceiptText,
   Trash2,
 } from 'lucide-react';
@@ -60,6 +65,9 @@ type Wedding = {
   venueInstructions: string;
   mapsUrl: string;
   heroImageUrl: string;
+  pixKey: string;
+  pixRecipientName: string;
+  pixRecipientCity: string;
   published: boolean;
 };
 
@@ -92,6 +100,17 @@ type AdminContent = {
   wedding: Wedding | null;
   gifts: AdminGift[];
   orders: AdminOrder[];
+  notifications: AdminNotification[];
+};
+
+type AdminNotification = {
+  id: string;
+  type: string;
+  title: string;
+  message: string;
+  readAt: string | null;
+  createdAt: string;
+  orderPublicId: string;
 };
 
 const emptyGift: Omit<AdminGift, 'id'> = {
@@ -116,6 +135,28 @@ function localDateTime(iso: string) {
   const date = new Date(iso);
   const shifted = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
   return shifted.toISOString().slice(0, 16);
+}
+
+function statusLabel(status: string) {
+  const labels: Record<string, string> = {
+    PENDING: 'Pagamento iniciado',
+    CREATING: 'Criando cobrança',
+    UNKNOWN: 'Verificar',
+    AWAITING_REVIEW: 'Conferir Pix',
+    CONFIRMED: 'Confirmado',
+    EXPIRED: 'Expirado',
+    CANCELED: 'Cancelado',
+    REFUNDED: 'Estornado',
+    CHARGEBACK: 'Contestação',
+  };
+  return labels[status] ?? status;
+}
+
+function dateTime(iso: string) {
+  return new Intl.DateTimeFormat('pt-BR', {
+    dateStyle: 'short',
+    timeStyle: 'short',
+  }).format(new Date(iso));
 }
 
 async function api(path: string, init: RequestInit) {
@@ -148,10 +189,15 @@ export function AdminDashboard({
   const [giftDraft, setGiftDraft] = useState<Omit<AdminGift, 'id'>>(emptyGift);
   const [giftDialogOpen, setGiftDialogOpen] = useState(false);
   const [giftToDelete, setGiftToDelete] = useState<AdminGift | null>(null);
+  const [orderToConfirm, setOrderToConfirm] = useState<AdminOrder | null>(null);
+  const [orders, setOrders] = useState<AdminOrder[]>(content?.orders ?? []);
+  const [notifications, setNotifications] = useState<AdminNotification[]>(
+    content?.notifications ?? [],
+  );
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const orders = useMemo(() => content?.orders ?? [], [content?.orders]);
+  const latestNotificationId = useRef(content?.notifications?.[0]?.id ?? null);
   const totalReceived = useMemo(
     () =>
       orders
@@ -159,6 +205,101 @@ export function AdminDashboard({
         .reduce((sum, order) => sum + order.amountInCents, 0),
     [orders],
   );
+  const unreadCount = notifications.filter((item) => !item.readAt).length;
+
+  useEffect(() => {
+    let active = true;
+    async function refreshNotifications() {
+      try {
+        const response = await fetch('/api/admin/notifications', {
+          cache: 'no-store',
+        });
+        if (!response.ok || !active) return;
+        const body = (await response.json()) as {
+          notifications: AdminNotification[];
+          orders: AdminOrder[];
+        };
+        const newest = body.notifications[0];
+        if (
+          newest &&
+          latestNotificationId.current &&
+          newest.id !== latestNotificationId.current &&
+          'Notification' in window &&
+          Notification.permission === 'granted'
+        ) {
+          new Notification(newest.title, { body: newest.message });
+        }
+        latestNotificationId.current = newest?.id ?? null;
+        setNotifications(body.notifications);
+        setOrders(body.orders);
+      } catch {
+        // O próximo ciclo tenta novamente sem interromper o painel.
+      }
+    }
+    const interval = window.setInterval(refreshNotifications, 15_000);
+    return () => {
+      active = false;
+      window.clearInterval(interval);
+    };
+  }, []);
+
+  async function enableDeviceNotifications() {
+    if (!('Notification' in window)) {
+      setError('Este navegador não oferece notificações do sistema.');
+      return;
+    }
+    const permission = await Notification.requestPermission();
+    setNotice(
+      permission === 'granted'
+        ? 'Alertas deste dispositivo ativados enquanto o painel estiver aberto.'
+        : 'As notificações do navegador não foram autorizadas.',
+    );
+  }
+
+  async function markNotificationsRead() {
+    await api('/api/admin/notifications', {
+      method: 'PATCH',
+      body: JSON.stringify({ all: true }),
+    });
+    const readAt = new Date().toISOString();
+    setNotifications((current) =>
+      current.map((item) => ({ ...item, readAt: item.readAt ?? readAt })),
+    );
+  }
+
+  async function confirmPix(publicId: string) {
+    setBusy(true);
+    setError(null);
+    try {
+      await api(`/api/admin/orders/${publicId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ action: 'CONFIRM' }),
+      });
+      setOrders((current) =>
+        current.map((order) =>
+          order.publicId === publicId
+            ? { ...order, status: 'CONFIRMED', settlementStatus: 'AVAILABLE' }
+            : order,
+        ),
+      );
+      const readAt = new Date().toISOString();
+      setNotifications((current) =>
+        current.map((item) =>
+          item.orderPublicId === publicId
+            ? { ...item, readAt: item.readAt ?? readAt }
+            : item,
+        ),
+      );
+      setNotice('Pix confirmado após a conferência do extrato.');
+      setOrderToConfirm(null);
+    } catch (cause) {
+      setError(
+        cause instanceof Error ? cause.message : 'Falha ao confirmar o Pix.',
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
 
   function beginGift(gift?: AdminGift) {
     setEditingGift(gift ?? null);
@@ -350,9 +491,18 @@ export function AdminDashboard({
             <p className="eyebrow">Área do casal</p>
             <h1>Nosso painel</h1>
           </div>
-          <Badge variant={wedding.published ? 'default' : 'secondary'}>
-            {wedding.published ? 'Site publicado' : 'Rascunho'}
-          </Badge>
+          <div className="admin-header-actions">
+            <span
+              className="notification-summary"
+              aria-label={`${unreadCount} alertas não lidos`}
+            >
+              <Bell aria-hidden="true" />
+              {unreadCount > 0 && <strong>{unreadCount}</strong>}
+            </span>
+            <Badge variant={wedding.published ? 'default' : 'secondary'}>
+              {wedding.published ? 'Site publicado' : 'Rascunho'}
+            </Badge>
+          </div>
         </header>
         {(notice || error) && (
           <div
@@ -393,6 +543,10 @@ export function AdminDashboard({
             <TabsTrigger value="recebidos">
               <ReceiptText />
               Recebidos
+            </TabsTrigger>
+            <TabsTrigger value="alertas">
+              <BellRing />
+              Alertas {unreadCount > 0 && `(${unreadCount})`}
             </TabsTrigger>
           </TabsList>
 
@@ -549,6 +703,59 @@ export function AdminDashboard({
                   placeholder="https://maps.google.com/..."
                 />
               </label>
+              <div className="admin-subsection">
+                <div>
+                  <h3>Recebimento por Pix</h3>
+                  <p>
+                    Estes dados formam o QR Code direto. Confirme se a chave
+                    está cadastrada no banco e se o nome exibido pelo aplicativo
+                    está correto.
+                  </p>
+                </div>
+                <label htmlFor="pix-key">
+                  Chave Pix
+                  <Input
+                    id="pix-key"
+                    value={wedding.pixKey}
+                    onChange={(e) =>
+                      setWedding({ ...wedding, pixKey: e.target.value })
+                    }
+                    required
+                  />
+                </label>
+                <div className="form-grid two">
+                  <label htmlFor="pix-recipient-name">
+                    Nome do recebedor
+                    <Input
+                      id="pix-recipient-name"
+                      maxLength={25}
+                      value={wedding.pixRecipientName}
+                      onChange={(e) =>
+                        setWedding({
+                          ...wedding,
+                          pixRecipientName: e.target.value,
+                        })
+                      }
+                      required
+                    />
+                  </label>
+                  <label htmlFor="pix-recipient-city">
+                    Cidade
+                    <Input
+                      id="pix-recipient-city"
+                      maxLength={15}
+                      value={wedding.pixRecipientCity}
+                      onChange={(e) =>
+                        setWedding({
+                          ...wedding,
+                          pixRecipientCity: e.target.value,
+                        })
+                      }
+                      required
+                    />
+                  </label>
+                </div>
+              </div>
               <label className="upload-field" htmlFor="hero-upload">
                 <span>Foto principal</span>
                 <div>
@@ -639,7 +846,10 @@ export function AdminDashboard({
               <div className="admin-panel-heading">
                 <div>
                   <h2>Presentes recebidos</h2>
-                  <p>A confirmação vem diretamente do Asaas.</p>
+                  <p>
+                    Confira Pix no extrato; cartões são confirmados
+                    automaticamente pelo Asaas.
+                  </p>
                 </div>
               </div>
               {orders.length === 0 ? (
@@ -657,6 +867,7 @@ export function AdminDashboard({
                       <TableHead>Valor</TableHead>
                       <TableHead>Pagamento</TableHead>
                       <TableHead>Status</TableHead>
+                      <TableHead className="text-right">Ação</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -670,7 +881,11 @@ export function AdminDashboard({
                         </TableCell>
                         <TableCell>{order.giftTitle}</TableCell>
                         <TableCell>{money(order.amountInCents)}</TableCell>
-                        <TableCell>{order.paymentMethod}</TableCell>
+                        <TableCell>
+                          {order.paymentMethod === 'PIX'
+                            ? 'Pix direto'
+                            : 'Cartão'}
+                        </TableCell>
                         <TableCell>
                           <Badge
                             variant={
@@ -679,13 +894,90 @@ export function AdminDashboard({
                                 : 'secondary'
                             }
                           >
-                            {order.status}
+                            {statusLabel(order.status)}
                           </Badge>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {order.paymentMethod === 'PIX' &&
+                          order.status === 'AWAITING_REVIEW' ? (
+                            <Button
+                              className="confirm-payment-button"
+                              disabled={busy}
+                              onClick={() => setOrderToConfirm(order)}
+                              size="sm"
+                            >
+                              <CheckCircle2 />
+                              Confirmar no extrato
+                            </Button>
+                          ) : (
+                            <span className="table-muted">—</span>
+                          )}
                         </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
                 </Table>
+              )}
+            </section>
+          </TabsContent>
+
+          <TabsContent value="alertas">
+            <section className="admin-panel">
+              <div className="admin-panel-heading">
+                <div>
+                  <h2>Alertas de pagamento</h2>
+                  <p>
+                    Pix informado pelo convidado e cartão confirmado pelo Asaas
+                    aparecem aqui.
+                  </p>
+                </div>
+                <div className="notification-actions">
+                  <Button onClick={enableDeviceNotifications} variant="outline">
+                    <BellRing />
+                    Alertas no dispositivo
+                  </Button>
+                  <Button
+                    disabled={unreadCount === 0}
+                    onClick={markNotificationsRead}
+                    variant="ghost"
+                  >
+                    Marcar como lidos
+                  </Button>
+                </div>
+              </div>
+              {notifications.length === 0 ? (
+                <div className="admin-empty">
+                  <Bell />
+                  <h3>Nenhum alerta ainda</h3>
+                  <p>Os novos avisos de pagamento aparecerão neste espaço.</p>
+                </div>
+              ) : (
+                <div className="notification-list">
+                  {notifications.map((item) => (
+                    <article
+                      className={item.readAt ? '' : 'unread'}
+                      key={item.id}
+                    >
+                      <span className="notification-icon">
+                        {item.type === 'CARD_CONFIRMED' ? (
+                          <CreditCard aria-hidden="true" />
+                        ) : (
+                          <QrCode aria-hidden="true" />
+                        )}
+                      </span>
+                      <div>
+                        <div className="notification-title-row">
+                          <h3>{item.title}</h3>
+                          {!item.readAt && <Badge>Novo</Badge>}
+                        </div>
+                        <p>{item.message}</p>
+                        <time dateTime={item.createdAt}>
+                          {dateTime(item.createdAt)}
+                        </time>
+                      </div>
+                    </article>
+                  ))}
+                </div>
               )}
             </section>
           </TabsContent>
@@ -798,6 +1090,38 @@ export function AdminDashboard({
           </form>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog
+        open={Boolean(orderToConfirm)}
+        onOpenChange={(nextOpen) =>
+          !nextOpen && !busy && setOrderToConfirm(null)
+        }
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Você localizou este Pix no extrato?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Confirme somente se encontrou {orderToConfirm?.guestName} e o
+              valor de{' '}
+              {orderToConfirm ? money(orderToConfirm.amountInCents) : ''}. O
+              botão do convidado é apenas um aviso e não comprova o recebimento.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={busy}>Ainda não</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={busy}
+              onClick={() =>
+                orderToConfirm && confirmPix(orderToConfirm.publicId)
+              }
+            >
+              {busy ? 'Confirmando…' : 'Sim, confirmar recebimento'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog
         open={Boolean(giftToDelete)}

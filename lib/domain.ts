@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-export const paymentMethodSchema = z.enum(['PIX', 'BOLETO', 'CARD']);
+export const paymentMethodSchema = z.enum(['PIX', 'CARD']);
 export type PaymentMethod = z.infer<typeof paymentMethodSchema>;
 
 export function isValidCpfCnpj(value: string) {
@@ -39,19 +39,30 @@ export function isValidCpfCnpj(value: string) {
   return digits.endsWith(first + second);
 }
 
-export const createOrderSchema = z.object({
-  giftId: z.string().min(1).max(100),
-  clientRequestId: z.uuid(),
-  guestName: z.string().trim().min(2).max(100),
-  guestEmail: z.email().max(254),
-  guestMessage: z.string().trim().max(500).optional().default(''),
-  cpfCnpj: z
-    .string()
-    .transform((value) => value.replace(/\D/g, ''))
-    .pipe(z.string().refine(isValidCpfCnpj, 'Informe um CPF ou CNPJ válido.')),
-  paymentMethod: paymentMethodSchema,
-  privacyAccepted: z.literal(true),
-});
+export const createOrderSchema = z
+  .object({
+    giftId: z.string().min(1).max(100),
+    clientRequestId: z.uuid(),
+    guestName: z.string().trim().min(2).max(100),
+    guestEmail: z.email().max(254),
+    guestMessage: z.string().trim().max(500).optional().default(''),
+    cpfCnpj: z.string().default(''),
+    paymentMethod: paymentMethodSchema,
+    privacyAccepted: z.literal(true),
+  })
+  .superRefine((data, context) => {
+    if (data.paymentMethod === 'CARD' && !isValidCpfCnpj(data.cpfCnpj)) {
+      context.addIssue({
+        code: 'custom',
+        path: ['cpfCnpj'],
+        message: 'Informe um CPF ou CNPJ válido para pagar com cartão.',
+      });
+    }
+  })
+  .transform((data) => ({
+    ...data,
+    cpfCnpj: data.cpfCnpj.replace(/\D/g, ''),
+  }));
 
 export const giftInputSchema = z.object({
   title: z.string().trim().min(3).max(120),
@@ -77,12 +88,16 @@ export const weddingInputSchema = z.object({
   venueInstructions: z.string().trim().max(1_000),
   mapsUrl: z.union([z.literal(''), z.url().max(1_000)]).nullable(),
   heroImageUrl: z.union([z.literal(''), z.string().max(1_000)]).nullable(),
+  pixKey: z.string().trim().min(3).max(120),
+  pixRecipientName: z.string().trim().min(2).max(25),
+  pixRecipientCity: z.string().trim().min(2).max(15),
   published: z.boolean(),
 });
 
 export type InternalOrderStatus =
   | 'PENDING'
   | 'CREATING'
+  | 'AWAITING_REVIEW'
   | 'UNKNOWN'
   | 'CONFIRMED'
   | 'EXPIRED'

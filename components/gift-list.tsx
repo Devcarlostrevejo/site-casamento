@@ -3,6 +3,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
+import { QRCodeSVG } from 'qrcode.react';
 import {
   BedDouble,
   Check,
@@ -15,7 +16,6 @@ import {
   Luggage,
   Plane,
   QrCode,
-  ReceiptText,
   UtensilsCrossed,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -46,9 +46,9 @@ type PaymentResult = {
     expiresAt: string | null;
   };
   pix: {
-    encodedImage: string;
     payload: string;
-    expirationDate: string;
+    key: string;
+    recipientName: string;
   } | null;
 };
 
@@ -85,9 +85,11 @@ function formatExpiration(value: string, includeTime: boolean) {
 export function GiftList({
   gifts,
   paymentsEnabled,
+  cardEnabled,
 }: {
   gifts: PublicGift[];
   paymentsEnabled: boolean;
+  cardEnabled: boolean;
 }) {
   const [selectedGift, setSelectedGift] = useState<PublicGift | null>(null);
   const [open, setOpen] = useState(false);
@@ -104,6 +106,7 @@ export function GiftList({
   const [requestId, setRequestId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [reported, setReported] = useState(false);
 
   function startGift(gift: PublicGift) {
     setSelectedGift(gift);
@@ -118,6 +121,7 @@ export function GiftList({
     setRequestId(null);
     setError(null);
     setCopied(false);
+    setReported(false);
     setOpen(true);
   }
 
@@ -270,6 +274,31 @@ export function GiftList({
     }
   }
 
+  async function reportPixPayment() {
+    if (!result?.order.publicId || reported) return;
+    setError(null);
+    try {
+      const response = await fetch(
+        `/api/orders/${encodeURIComponent(result.order.publicId)}/report-payment`,
+        { method: 'POST' },
+      );
+      const body = (await response.json().catch(() => ({}))) as {
+        error?: string;
+        status?: string;
+      };
+      if (!response.ok)
+        throw new Error(body.error ?? 'Não foi possível avisar o casal.');
+      if (body.status === 'CONFIRMED') setStage('confirmed');
+      else setReported(true);
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : 'Não foi possível avisar o casal.',
+      );
+    }
+  }
+
   if (gifts.length === 0) {
     return (
       <div className="gift-empty">
@@ -348,8 +377,8 @@ export function GiftList({
                 <p className="dialog-kicker">Você escolheu</p>
                 <DialogTitle>{selectedGift.title}</DialogTitle>
                 <DialogDescription>
-                  {formatBrlFromCents(selectedGift.priceInCents)} · Seus dados
-                  são enviados de forma segura ao Asaas.
+                  {formatBrlFromCents(selectedGift.priceInCents)} · O Pix vai
+                  direto para o casal; o cartão é processado pelo Asaas.
                 </DialogDescription>
               </DialogHeader>
               <form className="gift-form" onSubmit={submitPayment}>
@@ -378,21 +407,23 @@ export function GiftList({
                     value={guestEmail}
                   />
                 </label>
-                <label htmlFor="guest-document">
-                  CPF ou CNPJ
-                  <Input
-                    autoComplete="off"
-                    id="guest-document"
-                    inputMode="numeric"
-                    name="cpfCnpj"
-                    onChange={(event) =>
-                      setDocumentValue(formatDocument(event.target.value))
-                    }
-                    placeholder="000.000.000-00"
-                    required
-                    value={documentValue}
-                  />
-                </label>
+                {paymentMethod === 'CARD' && (
+                  <label htmlFor="guest-document">
+                    CPF ou CNPJ
+                    <Input
+                      autoComplete="off"
+                      id="guest-document"
+                      inputMode="numeric"
+                      name="cpfCnpj"
+                      onChange={(event) =>
+                        setDocumentValue(formatDocument(event.target.value))
+                      }
+                      placeholder="000.000.000-00"
+                      required
+                      value={documentValue}
+                    />
+                  </label>
+                )}
                 <fieldset className="payment-methods">
                   <legend>Como você quer pagar?</legend>
                   <RadioGroup
@@ -407,23 +438,23 @@ export function GiftList({
                       <QrCode aria-hidden="true" />
                       <span>
                         <strong>Pix</strong>
-                        <small>QR Code dinâmico</small>
-                      </span>
-                    </label>
-                    <label htmlFor="payment-boleto">
-                      <RadioGroupItem id="payment-boleto" value="BOLETO" />
-                      <ReceiptText aria-hidden="true" />
-                      <span>
-                        <strong>Boleto</strong>
-                        <small>Página segura Asaas</small>
+                        <small>Direto para o casal</small>
                       </span>
                     </label>
                     <label htmlFor="payment-card">
-                      <RadioGroupItem id="payment-card" value="CARD" />
+                      <RadioGroupItem
+                        disabled={!cardEnabled}
+                        id="payment-card"
+                        value="CARD"
+                      />
                       <CreditCard aria-hidden="true" />
                       <span>
                         <strong>Cartão</strong>
-                        <small>Página segura Asaas</small>
+                        <small>
+                          {cardEnabled
+                            ? 'Página segura Asaas'
+                            : 'Em configuração'}
+                        </small>
                       </span>
                     </label>
                   </RadioGroup>
@@ -496,18 +527,21 @@ export function GiftList({
                   : 'Continue no Asaas'}
               </DialogTitle>
               <DialogDescription>
-                Confirmaremos o presente automaticamente assim que o Asaas
-                avisar o pagamento.
+                {result.order.paymentMethod === 'PIX'
+                  ? 'Depois de pagar, avise o casal. A confirmação será feita após a conferência do extrato.'
+                  : 'Confirmaremos o presente automaticamente assim que o Asaas avisar o pagamento.'}
               </DialogDescription>
               {result.pix ? (
                 <>
                   <div className="pix-code">
-                    <Image
-                      alt="QR Code Pix para pagamento do presente"
-                      height={240}
-                      src={`data:image/png;base64,${result.pix.encodedImage}`}
-                      unoptimized
-                      width={240}
+                    <QRCodeSVG
+                      aria-hidden="true"
+                      bgColor="#ffffff"
+                      fgColor="#132331"
+                      level="M"
+                      size={240}
+                      title="QR Code Pix"
+                      value={result.pix.payload}
                     />
                   </div>
                   <label className="pix-payload" htmlFor="pix-payload">
@@ -522,6 +556,20 @@ export function GiftList({
                     <Copy aria-hidden="true" />
                     {copied ? 'Código copiado' : 'Copiar código Pix'}
                   </Button>
+                  <Button
+                    disabled={reported}
+                    onClick={reportPixPayment}
+                    variant="outline"
+                  >
+                    <Check aria-hidden="true" />
+                    {reported ? 'Casal avisado' : 'Já fiz o Pix'}
+                  </Button>
+                  {reported && (
+                    <output className="payment-reported">
+                      Aviso enviado. O presente será confirmado no painel após a
+                      conferência do extrato bancário.
+                    </output>
+                  )}
                 </>
               ) : result.order.checkoutUrl ? (
                 <a
@@ -543,17 +591,17 @@ export function GiftList({
                   {error}
                 </p>
               )}
-              {result.order.expiresAt && (
-                <p className="payment-waiting">
-                  Vencimento:{' '}
-                  {formatExpiration(
-                    result.order.expiresAt,
-                    result.order.paymentMethod === 'PIX',
-                  )}
-                </p>
-              )}
+              {result.order.expiresAt &&
+                result.order.paymentMethod === 'CARD' && (
+                  <p className="payment-waiting">
+                    Vencimento:{' '}
+                    {formatExpiration(result.order.expiresAt, false)}
+                  </p>
+                )}
               <p className="payment-waiting">
-                Esta janela verifica a confirmação automaticamente.
+                {result.order.paymentMethod === 'PIX'
+                  ? 'Não envie comprovantes por fora: use “Já fiz o Pix” para avisar o casal.'
+                  : 'Esta janela verifica a confirmação automaticamente.'}
               </p>
               <DialogClose render={<Button variant="ghost" />}>
                 Fechar

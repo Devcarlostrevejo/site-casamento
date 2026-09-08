@@ -16,6 +16,9 @@ export type WeddingData = {
   venueInstructions: string;
   mapsUrl: string;
   heroImageUrl: string;
+  pixKey: string;
+  pixRecipientName: string;
+  pixRecipientCity: string;
   published: boolean;
 };
 
@@ -52,6 +55,9 @@ export const demoWedding: WeddingData = {
     'Chegue com 30 minutos de antecedência para brindar com calma.',
   mapsUrl: '',
   heroImageUrl: '/wedding-still-life.png',
+  pixKey: 'casamentoHevilaCarlos@gmail.com',
+  pixRecipientName: 'HEVILA E CARLOS',
+  pixRecipientCity: 'SAO PAULO',
   published: true,
 };
 

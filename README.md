@@ -1,6 +1,6 @@
 # Nosso Dia — casamento e lista de presentes
 
-Aplicação full-stack para publicar as informações do casamento, administrar presentes simbólicos e receber contribuições por Pix dinâmico, boleto ou cartão através do checkout hospedado do Asaas.
+Aplicação full-stack para publicar as informações do casamento, administrar presentes simbólicos e receber contribuições por Pix direto ou cartão através do checkout hospedado do Asaas.
 
 ## Arquitetura
 
@@ -8,7 +8,9 @@ Aplicação full-stack para publicar as informações do casamento, administrar 
 - Cloudflare D1 para casamento, presentes, pedidos, webhooks e auditoria.
 - Cloudflare R2 para fotos enviadas pelo painel.
 - Sign in with ChatGPT para autenticar a área do casal; `ADMIN_EMAILS` define quem pode administrar.
-- Asaas somente no servidor. Dados de cartão são preenchidos na página do Asaas.
+- Pix copia e cola/QR Code gerado pelo site para a chave do casal, com conferência manual no painel.
+- Asaas somente para cartão e no servidor. Dados de cartão são preenchidos na página do Asaas.
+- Alertas persistentes no painel para Pix informado e cartão confirmado.
 
 ## Executar e validar
 
@@ -34,10 +36,10 @@ Crie credenciais próprias no Sandbox e configure:
 - `ASAAS_WEBHOOK_TOKEN`: segredo distinto, com 32 a 255 caracteres;
 - webhook apontando para `https://SEU-DOMINIO/api/webhooks/asaas` e enviando o token no cabeçalho `asaas-access-token`.
 
-O Pix é criado por cobrança e o QR Code é dinâmico. Boleto e cartão abrem a página hospedada do Asaas. Um pedido só aparece como confirmado após o webhook. Requisições possuem ID idempotente e tentativas com resultado incerto são reconciliadas antes de uma nova cobrança.
+O cartão abre a página hospedada do Asaas e só aparece como confirmado após o webhook. No Pix, o convidado avisa o pagamento e o casal confirma manualmente depois de conferir o extrato. Requisições possuem ID idempotente e tentativas com resultado incerto são reconciliadas antes de uma nova cobrança.
 
-Não use a chave de produção durante testes. Antes de ativar pagamentos reais, cadastre a chave Pix da conta Asaas do casal, valide os webhooks no Sandbox e substitua o texto provisório da política de privacidade por um canal de contato real.
+Não use a chave de produção durante testes. Antes de ativar pagamentos reais, valide os webhooks no Sandbox, confirme os dados da chave Pix direta no painel e substitua o texto provisório da política de privacidade por um canal de contato real.
 
 ## Observação financeira
 
-O pagamento entra primeiro no saldo da conta Asaas vinculada à API. Repasse ou transferência para uma chave Pix bancária deve ser configurado na própria conta Asaas; o site não envia dinheiro diretamente a uma chave Pix arbitrária.
+O Pix entra diretamente na conta vinculada à chave cadastrada. O cartão entra no saldo da conta Asaas vinculada à API.

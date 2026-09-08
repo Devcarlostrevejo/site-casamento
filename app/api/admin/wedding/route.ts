@@ -30,7 +30,8 @@ export async function PATCH(request: Request) {
     getD1()
       .prepare(`UPDATE weddings SET partner_one_name = ?, partner_two_name = ?, event_at = ?,
       headline = ?, welcome_text = ?, story_title = ?, story = ?, venue_name = ?, venue_address = ?,
-      venue_instructions = ?, maps_url = ?, hero_image_url = ?, published = ?, updated_at = ? WHERE id = ?`)
+      venue_instructions = ?, maps_url = ?, hero_image_url = ?, pix_key = ?,
+      pix_recipient_name = ?, pix_recipient_city = ?, published = ?, updated_at = ? WHERE id = ?`)
       .bind(
         data.partnerOneName,
         data.partnerTwoName,
@@ -44,6 +45,9 @@ export async function PATCH(request: Request) {
         data.venueInstructions,
         data.mapsUrl || null,
         data.heroImageUrl || null,
+        data.pixKey,
+        data.pixRecipientName,
+        data.pixRecipientCity,
         data.published ? 1 : 0,
         now,
         existing.id,

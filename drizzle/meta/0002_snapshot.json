@@ -1,9 +1,117 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "de14ddea-8a8e-4c3c-9909-19788bb1f60a",
-  "prevId": "57a79752-80f3-4258-a0cf-6742844d98f3",
+  "id": "2553fd0f-832d-487a-a365-ef1dee5500ae",
+  "prevId": "de14ddea-8a8e-4c3c-9909-19788bb1f60a",
   "tables": {
+    "admin_notifications": {
+      "name": "admin_notifications",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "wedding_id": {
+          "name": "wedding_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "order_id": {
+          "name": "order_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "dedupe_key": {
+          "name": "dedupe_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "type": {
+          "name": "type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "message": {
+          "name": "message",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "read_at": {
+          "name": "read_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "admin_notifications_dedupe_key_unique": {
+          "name": "admin_notifications_dedupe_key_unique",
+          "columns": ["dedupe_key"],
+          "isUnique": true
+        },
+        "idx_notifications_wedding_created": {
+          "name": "idx_notifications_wedding_created",
+          "columns": ["wedding_id", "created_at"],
+          "isUnique": false
+        },
+        "idx_notifications_wedding_read": {
+          "name": "idx_notifications_wedding_read",
+          "columns": ["wedding_id", "read_at"],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "admin_notifications_wedding_id_weddings_id_fk": {
+          "name": "admin_notifications_wedding_id_weddings_id_fk",
+          "tableFrom": "admin_notifications",
+          "tableTo": "weddings",
+          "columnsFrom": ["wedding_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "admin_notifications_order_id_orders_id_fk": {
+          "name": "admin_notifications_order_id_orders_id_fk",
+          "tableFrom": "admin_notifications",
+          "tableTo": "orders",
+          "columnsFrom": ["order_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
     "audit_logs": {
       "name": "audit_logs",
       "columns": {
@@ -780,6 +888,30 @@
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
+        },
+        "pix_key": {
+          "name": "pix_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'casamentoHevilaCarlos@gmail.com'"
+        },
+        "pix_recipient_name": {
+          "name": "pix_recipient_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'HEVILA E CARLOS'"
+        },
+        "pix_recipient_city": {
+          "name": "pix_recipient_city",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'SAO PAULO'"
         },
         "published": {
           "name": "published",

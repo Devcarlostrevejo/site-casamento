@@ -1,15 +1,15 @@
+import { z } from 'zod';
 import {
-  createAsaasCharge,
+  createAsaasCardCharge,
   createAsaasCustomer,
   findAsaasCustomerByExternalReference,
   findAsaasPaymentByExternalReference,
-  getAsaasPixQrCode,
   PaymentProviderError,
   type AsaasPayment,
 } from '@/lib/asaas';
-import { z } from 'zod';
 import { getD1 } from '@/db/queries';
 import { createOrderSchema, type PaymentMethod } from '@/lib/domain';
+import { createPixPayload } from '@/lib/pix';
 import { isSameOriginRequest } from '@/lib/security';
 
 export const dynamic = 'force-dynamic';
@@ -19,12 +19,17 @@ type GiftRow = {
   weddingId: string;
   title: string;
   priceInCents: number;
+  pixKey: string;
+  pixRecipientName: string;
+  pixRecipientCity: string;
 };
+
 type ExistingOrder = {
   id: string;
   publicId: string;
   giftId: string;
   guestEmail: string;
+  amountInCents: number;
   status: string;
   paymentMethod: PaymentMethod;
   providerPaymentId: string | null;
@@ -33,28 +38,35 @@ type ExistingOrder = {
   updatedAt: string;
 };
 
-function orderResponse(
-  order: ExistingOrder,
-  pix: Awaited<ReturnType<typeof getAsaasPixQrCode>> | null = null,
-) {
-  return {
-    order: {
-      publicId: order.publicId,
-      status: order.status,
-      paymentMethod: order.paymentMethod,
-      checkoutUrl: order.providerCheckoutUrl,
-      expiresAt: order.paymentExpiresAt,
-    },
-    pix,
-  };
-}
-
 function providerState(payment: AsaasPayment) {
   const confirmed =
     payment.status === 'CONFIRMED' || payment.status === 'RECEIVED';
   return {
     status: confirmed ? 'CONFIRMED' : 'PENDING',
     settlementStatus: payment.status === 'RECEIVED' ? 'AVAILABLE' : 'PENDING',
+  };
+}
+
+function pixResponse(order: ExistingOrder, gift: GiftRow) {
+  return {
+    order: {
+      publicId: order.publicId,
+      status: order.status,
+      paymentMethod: 'PIX' as const,
+      checkoutUrl: null,
+      expiresAt: null,
+    },
+    pix: {
+      payload: createPixPayload({
+        key: gift.pixKey,
+        recipientName: gift.pixRecipientName,
+        recipientCity: gift.pixRecipientCity,
+        amountInCents: order.amountInCents,
+        transactionId: order.publicId.replace(/-/g, '').slice(0, 25),
+      }),
+      key: gift.pixKey,
+      recipientName: gift.pixRecipientName,
+    },
   };
 }
 
@@ -85,78 +97,61 @@ export async function POST(request: Request) {
 
   const db = getD1();
   const input = parsed.data;
+  const gift = await db
+    .prepare(`
+    SELECT g.id, g.wedding_id AS weddingId, g.title, g.price_in_cents AS priceInCents,
+      w.pix_key AS pixKey, w.pix_recipient_name AS pixRecipientName,
+      w.pix_recipient_city AS pixRecipientCity
+    FROM gifts g JOIN weddings w ON w.id = g.wedding_id
+    WHERE g.id = ? AND g.active = 1 AND g.deleted_at IS NULL AND w.published = 1 LIMIT 1
+  `)
+    .bind(input.giftId)
+    .first<GiftRow>();
+  if (!gift)
+    return Response.json(
+      { error: 'Este presente não está disponível.' },
+      { status: 404 },
+    );
+
   let order = await db
     .prepare(`
     SELECT id, public_id AS publicId, gift_id AS giftId, guest_email AS guestEmail,
-      status, payment_method AS paymentMethod, provider_payment_id AS providerPaymentId,
-      provider_checkout_url AS providerCheckoutUrl, payment_expires_at AS paymentExpiresAt,
-      updated_at AS updatedAt
+      amount_in_cents AS amountInCents, status, payment_method AS paymentMethod,
+      provider_payment_id AS providerPaymentId, provider_checkout_url AS providerCheckoutUrl,
+      payment_expires_at AS paymentExpiresAt, updated_at AS updatedAt
     FROM orders WHERE client_request_id = ? LIMIT 1
   `)
     .bind(input.clientRequestId)
     .first<ExistingOrder>();
+  const orderWasExisting = Boolean(order);
 
   if (
     order &&
     (order.giftId !== input.giftId ||
       order.paymentMethod !== input.paymentMethod ||
       order.guestEmail !== input.guestEmail.toLowerCase())
-  ) {
+  )
     return Response.json(
       { error: 'Esta tentativa já foi usada com outros dados.' },
       { status: 409 },
     );
-  }
 
-  if (order?.providerPaymentId) {
-    const pix =
-      order.paymentMethod === 'PIX' && order.status !== 'CONFIRMED'
-        ? await getAsaasPixQrCode(order.providerPaymentId).catch(() => null)
-        : null;
-    return Response.json(orderResponse(order, pix));
-  }
+  if (order && input.paymentMethod === 'PIX')
+    return Response.json(pixResponse(order, gift));
 
-  if (order) {
-    const reconciled = await findAsaasPaymentByExternalReference(
-      order.publicId,
-    ).catch(() => null);
-    if (reconciled) {
-      const state = providerState(reconciled);
-      const checkoutUrl =
-        reconciled.invoiceUrl ?? reconciled.bankSlipUrl ?? null;
-      const now = new Date().toISOString();
-      await db
-        .prepare(`UPDATE orders SET provider_payment_id = ?, provider_checkout_url = ?,
-        payment_expires_at = ?, status = ?, settlement_status = ?,
-        confirmed_at = CASE WHEN ? = 'CONFIRMED' THEN COALESCE(confirmed_at, ?) ELSE confirmed_at END,
-        updated_at = ? WHERE id = ?`)
-        .bind(
-          reconciled.id,
-          checkoutUrl,
-          reconciled.dueDate ?? null,
-          state.status,
-          state.settlementStatus,
-          state.status,
-          now,
-          now,
-          order.id,
-        )
-        .run();
-      order = {
-        ...order,
-        providerPaymentId: reconciled.id,
-        providerCheckoutUrl: checkoutUrl,
-        paymentExpiresAt: reconciled.dueDate ?? null,
-        status: state.status,
-        updatedAt: now,
-      };
-      const pix =
-        order.paymentMethod === 'PIX' && state.status !== 'CONFIRMED'
-          ? await getAsaasPixQrCode(reconciled.id).catch(() => null)
-          : null;
-      return Response.json(orderResponse(order, pix));
-    }
+  if (order?.providerPaymentId)
+    return Response.json({
+      order: {
+        publicId: order.publicId,
+        status: order.status,
+        paymentMethod: order.paymentMethod,
+        checkoutUrl: order.providerCheckoutUrl,
+        expiresAt: order.paymentExpiresAt,
+      },
+      pix: null,
+    });
 
+  if (orderWasExisting && order) {
     const stillCreating =
       order.status === 'CREATING' &&
       Date.now() - new Date(order.updatedAt).getTime() < 30_000;
@@ -168,7 +163,6 @@ export async function POST(request: Request) {
         },
         { status: 409 },
       );
-
     const lockTime = new Date().toISOString();
     const lock = await db
       .prepare(`UPDATE orders SET status = 'CREATING', updated_at = ?
@@ -198,34 +192,31 @@ export async function POST(request: Request) {
       { status: 429 },
     );
 
-  const gift = await db
-    .prepare(`
-    SELECT g.id, g.wedding_id AS weddingId, g.title, g.price_in_cents AS priceInCents
-    FROM gifts g JOIN weddings w ON w.id = g.wedding_id
-    WHERE g.id = ? AND g.active = 1 AND g.deleted_at IS NULL AND w.published = 1 LIMIT 1
-  `)
-    .bind(input.giftId)
-    .first<GiftRow>();
-  if (!gift)
-    return Response.json(
-      { error: 'Este presente não está disponível.' },
-      { status: 404 },
-    );
-
   if (!order) {
-    const id = crypto.randomUUID();
-    const publicId = crypto.randomUUID();
     const now = new Date().toISOString();
+    order = {
+      id: crypto.randomUUID(),
+      publicId: crypto.randomUUID(),
+      giftId: gift.id,
+      guestEmail: input.guestEmail.toLowerCase(),
+      amountInCents: gift.priceInCents,
+      status: input.paymentMethod === 'PIX' ? 'PENDING' : 'CREATING',
+      paymentMethod: input.paymentMethod,
+      providerPaymentId: null,
+      providerCheckoutUrl: null,
+      paymentExpiresAt: null,
+      updatedAt: now,
+    };
     try {
       await db
         .prepare(`INSERT INTO orders
         (id, public_id, client_request_id, wedding_id, gift_id, guest_name, guest_email,
-         guest_message, privacy_accepted_at, amount_in_cents, currency, payment_method, status, settlement_status,
-         provider, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'BRL', ?, 'CREATING', 'PENDING', 'ASAAS', ?, ?)`)
+         guest_message, privacy_accepted_at, amount_in_cents, currency, payment_method, status,
+         settlement_status, provider, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'BRL', ?, ?, 'PENDING', ?, ?, ?)`)
         .bind(
-          id,
-          publicId,
+          order.id,
+          order.publicId,
           input.clientRequestId,
           gift.weddingId,
           gift.id,
@@ -235,6 +226,8 @@ export async function POST(request: Request) {
           now,
           gift.priceInCents,
           input.paymentMethod,
+          order.status,
+          input.paymentMethod === 'PIX' ? 'DIRECT_PIX' : 'ASAAS',
           now,
           now,
         )
@@ -245,19 +238,10 @@ export async function POST(request: Request) {
         { status: 409 },
       );
     }
-    order = {
-      id,
-      publicId,
-      giftId: gift.id,
-      guestEmail: input.guestEmail.toLowerCase(),
-      status: 'CREATING',
-      paymentMethod: input.paymentMethod,
-      providerPaymentId: null,
-      providerCheckoutUrl: null,
-      paymentExpiresAt: null,
-      updatedAt: now,
-    };
   }
+
+  if (input.paymentMethod === 'PIX')
+    return Response.json(pixResponse(order, gift), { status: 201 });
 
   try {
     const alreadyCreated = await findAsaasPaymentByExternalReference(
@@ -272,53 +256,66 @@ export async function POST(request: Request) {
         externalReference: order.publicId,
       }));
     const created = alreadyCreated
-      ? {
-          payment: alreadyCreated,
-          pix:
-            input.paymentMethod === 'PIX'
-              ? await getAsaasPixQrCode(alreadyCreated.id)
-              : null,
-        }
-      : await createAsaasCharge({
+      ? { payment: alreadyCreated }
+      : await createAsaasCardCharge({
           customerId: customer.id,
-          method: input.paymentMethod,
           amountInCents: gift.priceInCents,
           description: gift.title,
           externalReference: order.publicId,
         });
-    const { payment, pix } = created;
-    const state = providerState(payment);
-    const checkoutUrl = payment.invoiceUrl ?? payment.bankSlipUrl ?? null;
+    const state = providerState(created.payment);
+    const checkoutUrl = created.payment.invoiceUrl ?? null;
     const now = new Date().toISOString();
-    await db
-      .prepare(`UPDATE orders SET provider_customer_id = ?, provider_payment_id = ?,
+    const statements = [
+      db
+        .prepare(`UPDATE orders SET provider_customer_id = ?, provider_payment_id = ?,
       provider_checkout_url = ?, payment_expires_at = ?, status = ?, settlement_status = ?,
       confirmed_at = CASE WHEN ? = 'CONFIRMED' THEN COALESCE(confirmed_at, ?) ELSE confirmed_at END,
       updated_at = ? WHERE id = ?`)
-      .bind(
-        customer.id,
-        payment.id,
-        checkoutUrl,
-        pix?.expirationDate ?? payment.dueDate ?? null,
-        state.status,
-        state.settlementStatus,
-        state.status,
-        now,
-        now,
-        order.id,
-      )
-      .run();
-
+        .bind(
+          customer.id,
+          created.payment.id,
+          checkoutUrl,
+          created.payment.dueDate ?? null,
+          state.status,
+          state.settlementStatus,
+          state.status,
+          now,
+          now,
+          order.id,
+        ),
+    ];
+    if (state.status === 'CONFIRMED') {
+      const formattedAmount = new Intl.NumberFormat('pt-BR', {
+        style: 'currency',
+        currency: 'BRL',
+      }).format(gift.priceInCents / 100);
+      statements.push(
+        db
+          .prepare(`INSERT OR IGNORE INTO admin_notifications
+          (id, wedding_id, order_id, dedupe_key, type, title, message, created_at)
+          VALUES (?, ?, ?, ?, 'CARD_CONFIRMED', 'Cartão confirmado', ?, ?)`)
+          .bind(
+            crypto.randomUUID(),
+            gift.weddingId,
+            order.id,
+            `card-confirmed:${order.id}`,
+            `${input.guestName} enviou ${formattedAmount} por cartão. O pagamento foi confirmado pelo Asaas.`,
+            now,
+          ),
+      );
+    }
+    await db.batch(statements);
     return Response.json(
       {
         order: {
           publicId: order.publicId,
           status: state.status,
-          paymentMethod: input.paymentMethod,
+          paymentMethod: 'CARD',
           checkoutUrl,
-          expiresAt: pix?.expirationDate ?? payment.dueDate ?? null,
+          expiresAt: created.payment.dueDate ?? null,
         },
-        pix,
+        pix: null,
       },
       { status: 201 },
     );
@@ -340,8 +337,14 @@ export async function POST(request: Request) {
       error instanceof PaymentProviderError
         ? error.message
         : 'Não foi possível iniciar o pagamento.';
-    const status =
-      error instanceof PaymentProviderError && error.status === 503 ? 503 : 502;
-    return Response.json({ error: message }, { status });
+    return Response.json(
+      { error: message },
+      {
+        status:
+          error instanceof PaymentProviderError && error.status === 503
+            ? 503
+            : 502,
+      },
+    );
   }
 }
