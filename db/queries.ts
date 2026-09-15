@@ -52,7 +52,9 @@ export async function getPublicContent(): Promise<{
       .prepare(`
       SELECT id, slug, partner_one_name AS partnerOneName, partner_two_name AS partnerTwoName,
         event_at AS eventAt, timezone, headline, welcome_text AS welcomeText,
-        story_title AS storyTitle, story, venue_name AS venueName,
+        story_title AS storyTitle, story, ceremony_name AS ceremonyName,
+        ceremony_address AS ceremonyAddress, ceremony_instructions AS ceremonyInstructions,
+        ceremony_maps_url AS ceremonyMapsUrl, venue_name AS venueName,
         venue_address AS venueAddress, venue_instructions AS venueInstructions,
         maps_url AS mapsUrl, hero_image_url AS heroImageUrl, pix_key AS pixKey,
         pix_recipient_name AS pixRecipientName, pix_recipient_city AS pixRecipientCity, published
@@ -78,6 +80,7 @@ export async function getPublicContent(): Promise<{
       wedding: {
         ...weddingResult,
         published: Boolean(weddingResult.published),
+        ceremonyMapsUrl: weddingResult.ceremonyMapsUrl ?? '',
         mapsUrl: weddingResult.mapsUrl ?? '',
         heroImageUrl: weddingResult.heroImageUrl ?? '',
       },
@@ -103,7 +106,9 @@ export async function getAdminContent() {
     .prepare(`
     SELECT id, slug, partner_one_name AS partnerOneName, partner_two_name AS partnerTwoName,
       event_at AS eventAt, timezone, headline, welcome_text AS welcomeText,
-      story_title AS storyTitle, story, venue_name AS venueName,
+      story_title AS storyTitle, story, ceremony_name AS ceremonyName,
+      ceremony_address AS ceremonyAddress, ceremony_instructions AS ceremonyInstructions,
+      ceremony_maps_url AS ceremonyMapsUrl, venue_name AS venueName,
       venue_address AS venueAddress, venue_instructions AS venueInstructions,
       maps_url AS mapsUrl, hero_image_url AS heroImageUrl, pix_key AS pixKey,
       pix_recipient_name AS pixRecipientName, pix_recipient_city AS pixRecipientCity, published
@@ -141,6 +146,7 @@ export async function getAdminContent() {
       ? {
           ...wedding,
           published: Boolean(wedding.published),
+          ceremonyMapsUrl: wedding.ceremonyMapsUrl ?? '',
           mapsUrl: wedding.mapsUrl ?? '',
           heroImageUrl: wedding.heroImageUrl ?? '',
         }
@@ -162,9 +168,10 @@ export async function seedDemoData(actorUserId: string) {
     db
       .prepare(`INSERT OR IGNORE INTO weddings
       (id, slug, partner_one_name, partner_two_name, event_at, timezone, headline, welcome_text,
-       story_title, story, venue_name, venue_address, venue_instructions, maps_url, hero_image_url,
-       pix_key, pix_recipient_name, pix_recipient_city, published, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+       story_title, story, ceremony_name, ceremony_address, ceremony_instructions, ceremony_maps_url,
+       venue_name, venue_address, venue_instructions, maps_url, hero_image_url, pix_key,
+       pix_recipient_name, pix_recipient_city, published, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
       .bind(
         DEMO_WEDDING_ID,
         demoWedding.slug,
@@ -176,6 +183,10 @@ export async function seedDemoData(actorUserId: string) {
         demoWedding.welcomeText,
         demoWedding.storyTitle,
         demoWedding.story,
+        demoWedding.ceremonyName,
+        demoWedding.ceremonyAddress,
+        demoWedding.ceremonyInstructions,
+        demoWedding.ceremonyMapsUrl,
         demoWedding.venueName,
         demoWedding.venueAddress,
         demoWedding.venueInstructions,

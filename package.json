@@ -9,7 +9,7 @@
     "dev": "vinext dev",
     "build": "vinext build",
     "start": "wrangler dev --config dist/server/wrangler.json",
-    "lint": "oxlint app db lib components/gift-list.tsx components/admin-dashboard.tsx --ignore-pattern app/chatgpt-auth.ts",
+    "lint": "oxlint app db lib components/gift-list.tsx components/admin-dashboard.tsx components/wedding-countdown.tsx --ignore-pattern app/chatgpt-auth.ts",
     "format": "oxfmt",
     "typecheck": "tsc --noEmit --incremental false",
     "test": "vitest run",

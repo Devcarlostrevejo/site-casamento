@@ -19,6 +19,10 @@ export const weddings = sqliteTable('weddings', {
     .notNull()
     .default('Foi encontro. Virou casa.'),
   story: text('story').notNull().default(''),
+  ceremonyName: text('ceremony_name').notNull().default(''),
+  ceremonyAddress: text('ceremony_address').notNull().default(''),
+  ceremonyInstructions: text('ceremony_instructions').notNull().default(''),
+  ceremonyMapsUrl: text('ceremony_maps_url'),
   venueName: text('venue_name').notNull().default(''),
   venueAddress: text('venue_address').notNull().default(''),
   venueInstructions: text('venue_instructions').notNull().default(''),

@@ -69,6 +69,13 @@
 html {
   scroll-behavior: smooth;
 }
+#contagem,
+#historia,
+#detalhes,
+#locais,
+#presentes {
+  scroll-margin-top: 6.5rem;
+}
 body {
   margin: 0;
   background: var(--background);
@@ -280,6 +287,77 @@ textarea {
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
 }
 
+.countdown-section {
+  background:
+    linear-gradient(
+      90deg,
+      transparent 49.9%,
+      var(--border) 50%,
+      transparent 50.1%
+    ),
+    var(--cream);
+  border-bottom: 1px solid var(--border);
+  border-top: 1px solid var(--border);
+  padding: clamp(4.5rem, 8vw, 7rem) 5vw;
+}
+.countdown-shell {
+  margin: 0 auto;
+  max-width: 76rem;
+}
+.countdown-intro {
+  margin: 0 auto clamp(2.5rem, 5vw, 4rem);
+  max-width: 48rem;
+  text-align: center;
+}
+.countdown-intro h2 {
+  font-family: var(--font-display);
+  font-size: clamp(3rem, 6vw, 5.8rem);
+  font-weight: 500;
+  letter-spacing: -0.055em;
+  line-height: 0.95;
+  margin: 0;
+}
+.countdown-intro > p:last-child {
+  color: #667064;
+  line-height: 1.7;
+  margin: 1.25rem 0 0;
+}
+.countdown-grid {
+  background: color-mix(in srgb, var(--cream) 88%, white);
+  border-bottom: 1px solid var(--ink);
+  border-top: 1px solid var(--ink);
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: 0;
+}
+.countdown-grid > div {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: clamp(1.2rem, 3vw, 2rem);
+  text-align: center;
+}
+.countdown-grid > div + div {
+  border-left: 1px solid var(--border);
+}
+.countdown-grid dt {
+  color: var(--plum);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  order: 2;
+  text-transform: uppercase;
+}
+.countdown-grid dd {
+  font-family: var(--font-display);
+  font-size: clamp(2.8rem, 6vw, 5.6rem);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.05em;
+  line-height: 1;
+  margin: 0 0 0.5rem;
+  order: 1;
+}
+
 .story-section {
   align-items: start;
   display: grid;
@@ -331,10 +409,10 @@ textarea {
   border-bottom: 1px solid rgba(255, 255, 255, 0.18);
   border-top: 1px solid rgba(255, 255, 255, 0.18);
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, 1fr);
 }
 .detail-card {
-  min-height: 22rem;
+  min-height: 19rem;
   padding: 2.5rem;
 }
 .detail-card + .detail-card {
@@ -374,6 +452,126 @@ textarea {
   margin-top: 1rem;
   text-decoration: underline;
   text-underline-offset: 0.25rem;
+}
+.locations-block {
+  margin-top: clamp(5rem, 9vw, 8rem);
+}
+.locations-heading {
+  align-items: end;
+  display: grid;
+  gap: 3rem;
+  grid-template-columns: 1.15fr 0.85fr;
+  margin-bottom: 2rem;
+}
+.locations-heading .eyebrow {
+  color: #d6b768;
+}
+.locations-heading h2 {
+  font-family: var(--font-display);
+  font-size: clamp(2.8rem, 5vw, 5rem);
+  font-weight: 500;
+  letter-spacing: -0.05em;
+  line-height: 0.95;
+  margin: 0;
+}
+.locations-heading > p {
+  color: #c8d0c4;
+  line-height: 1.7;
+  margin: 0;
+}
+.venue-grid {
+  display: grid;
+  gap: 1.25rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.venue-grid-single {
+  grid-template-columns: minmax(0, 1fr);
+  max-width: 48rem;
+}
+.venue-card {
+  background: #f7f6ec;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: var(--ink);
+  display: grid;
+  grid-template-rows: auto 1fr;
+  min-width: 0;
+  overflow: hidden;
+}
+.venue-copy {
+  padding: clamp(1.5rem, 3vw, 2.5rem);
+}
+.venue-title-row {
+  align-items: center;
+  display: flex;
+  gap: 0.7rem;
+}
+.venue-title-row svg {
+  color: var(--plum);
+  height: 1.35rem;
+  stroke-width: 1.6;
+  width: 1.35rem;
+}
+.venue-eyebrow {
+  color: var(--plum) !important;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  margin: 0;
+  text-transform: uppercase;
+}
+.venue-card h3 {
+  font-family: var(--font-display);
+  font-size: clamp(2rem, 3.5vw, 3rem);
+  font-weight: 500;
+  letter-spacing: -0.04em;
+  line-height: 1;
+  margin: 1.2rem 0 0.8rem;
+}
+.venue-card address,
+.venue-card .venue-copy > p:not(.venue-eyebrow) {
+  color: #5d6658;
+  font-size: 0.92rem;
+  font-style: normal;
+  line-height: 1.65;
+  margin: 0.65rem 0 0;
+  overflow-wrap: anywhere;
+}
+.venue-link {
+  align-items: center;
+  border: 1px solid var(--plum);
+  color: var(--plum);
+  display: inline-flex;
+  font-size: 0.8rem;
+  font-weight: 800;
+  gap: 0.5rem;
+  justify-content: center;
+  margin-top: 1.25rem;
+  min-height: 2.75rem;
+  padding: 0.65rem 0.85rem;
+  text-transform: uppercase;
+}
+.venue-link:hover,
+.venue-link:focus-visible {
+  background: var(--plum);
+  color: white;
+}
+.venue-link svg {
+  height: 1rem;
+  width: 1rem;
+}
+.venue-map {
+  aspect-ratio: 16 / 10;
+  background: #dfe2d1;
+  border-top: 1px solid var(--border);
+  min-height: 15rem;
+  overflow: hidden;
+}
+.venue-map iframe {
+  border: 0;
+  display: block;
+  height: 100%;
+  pointer-events: none;
+  width: 100%;
 }
 
 .gifts-section {
@@ -1117,6 +1315,32 @@ footer > p:nth-child(2) {
   margin: 0.3rem 0 0;
   max-width: 48rem;
 }
+.location-admin-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.location-fieldset {
+  background: #f5f5e9;
+  border: 1px solid var(--border);
+  display: grid;
+  gap: 1rem;
+  min-width: 0;
+  padding: 1.25rem;
+}
+.location-fieldset legend {
+  color: var(--ink);
+  font-family: var(--font-display);
+  font-size: 1.45rem;
+  font-weight: 650;
+  padding: 0 0.4rem;
+}
+.location-fieldset > p {
+  color: var(--muted-foreground);
+  font-size: 0.78rem;
+  line-height: 1.55;
+  margin: 0;
+}
 .confirm-payment-button {
   background: #26714a !important;
   color: white !important;
@@ -1296,10 +1520,9 @@ footer > p:nth-child(2) {
   .gift-grid {
     grid-template-columns: 1fr 1fr;
   }
-  .detail-card:last-child {
-    border-left: 0;
-    border-top: 1px solid rgba(255, 255, 255, 0.18);
-    grid-column: 1 / -1;
+  .venue-grid,
+  .location-admin-grid {
+    grid-template-columns: 1fr;
   }
   .admin-shell {
     grid-template-columns: 1fr;
@@ -1335,9 +1558,20 @@ footer > p:nth-child(2) {
 @media (max-width: 640px) {
   .site-header {
     min-height: 4.5rem;
+    padding-left: 1rem;
+    padding-right: 1rem;
   }
-  .site-header nav a:not(.nav-gift) {
+  .site-header nav {
+    gap: 0.45rem;
+  }
+  .site-header nav a:not(.nav-gift):not(.nav-locations) {
     display: none;
+  }
+  .nav-locations {
+    padding: 0.65rem 0.45rem !important;
+  }
+  .nav-gift {
+    padding: 0.7rem 0.8rem;
   }
   .hero {
     min-height: auto;
@@ -1367,6 +1601,21 @@ footer > p:nth-child(2) {
     gap: 1.5rem;
     grid-template-columns: 1fr;
     padding: 6rem 1.25rem;
+  }
+  .countdown-section {
+    background: var(--cream);
+    padding-left: 1.25rem;
+    padding-right: 1.25rem;
+  }
+  .countdown-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .countdown-grid > div:nth-child(3) {
+    border-left: 0;
+  }
+  .countdown-grid > div:nth-child(3),
+  .countdown-grid > div:nth-child(4) {
+    border-top: 1px solid var(--border);
   }
   .story-number {
     display: none;
@@ -1400,6 +1649,15 @@ footer > p:nth-child(2) {
   }
   .detail-card > svg {
     margin-bottom: 2.5rem;
+  }
+  .locations-heading {
+    align-items: start;
+    gap: 1.25rem;
+    grid-template-columns: 1fr;
+  }
+  .venue-map {
+    aspect-ratio: 4 / 3;
+    min-height: 13rem;
   }
   .gifts-heading > p {
     border-left: 0;
