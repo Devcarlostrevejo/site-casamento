@@ -11,6 +11,10 @@ export type WeddingData = {
   welcomeText: string;
   storyTitle: string;
   story: string;
+  ceremonyName: string;
+  ceremonyAddress: string;
+  ceremonyInstructions: string;
+  ceremonyMapsUrl: string;
   venueName: string;
   venueAddress: string;
   venueInstructions: string;
@@ -49,10 +53,15 @@ export const demoWedding: WeddingData = {
   storyTitle: 'Foi encontro. Virou casa.',
   story:
     'Entre conversas demoradas, viagens improvisadas e muitos domingos à mesa, descobrimos que o nosso lugar favorito sempre foi um ao lado do outro.\n\nAgora começa um novo capítulo — e ele fica ainda mais bonito com você por perto.',
+  ceremonyName: 'Capela das Palmeiras',
+  ceremonyAddress:
+    'São Paulo, SP · O endereço completo será confirmado em breve.',
+  ceremonyInstructions:
+    'A cerimônia começa pontualmente. Sugerimos chegar com 30 minutos de antecedência.',
+  ceremonyMapsUrl: '',
   venueName: 'Jardim das Palmeiras',
   venueAddress: 'São Paulo, SP · O endereço completo será confirmado em breve.',
-  venueInstructions:
-    'Chegue com 30 minutos de antecedência para brindar com calma.',
+  venueInstructions: 'Depois do sim, esperamos você para celebrar com calma.',
   mapsUrl: '',
   heroImageUrl: '/wedding-still-life.png',
   pixKey: 'casamentoHevilaCarlos@gmail.com',

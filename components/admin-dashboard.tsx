@@ -60,6 +60,10 @@ type Wedding = {
   welcomeText: string;
   storyTitle: string;
   story: string;
+  ceremonyName: string;
+  ceremonyAddress: string;
+  ceremonyInstructions: string;
+  ceremonyMapsUrl: string;
   venueName: string;
   venueAddress: string;
   venueInstructions: string;
@@ -631,30 +635,17 @@ export function AdminDashboard({
                   required
                 />
               </label>
-              <div className="form-grid two">
-                <label htmlFor="story-title">
-                  Título da história
-                  <Input
-                    id="story-title"
-                    value={wedding.storyTitle}
-                    onChange={(e) =>
-                      setWedding({ ...wedding, storyTitle: e.target.value })
-                    }
-                    required
-                  />
-                </label>
-                <label htmlFor="venue-name">
-                  Nome do local
-                  <Input
-                    id="venue-name"
-                    value={wedding.venueName}
-                    onChange={(e) =>
-                      setWedding({ ...wedding, venueName: e.target.value })
-                    }
-                    required
-                  />
-                </label>
-              </div>
+              <label htmlFor="story-title">
+                Título da história
+                <Input
+                  id="story-title"
+                  value={wedding.storyTitle}
+                  onChange={(e) =>
+                    setWedding({ ...wedding, storyTitle: e.target.value })
+                  }
+                  required
+                />
+              </label>
               <label htmlFor="story">
                 Nossa história
                 <Textarea
@@ -667,42 +658,130 @@ export function AdminDashboard({
                   required
                 />
               </label>
-              <label htmlFor="venue-address">
-                Endereço
-                <Input
-                  id="venue-address"
-                  value={wedding.venueAddress}
-                  onChange={(e) =>
-                    setWedding({ ...wedding, venueAddress: e.target.value })
-                  }
-                  required
-                />
-              </label>
-              <label htmlFor="venue-instructions">
-                Orientações
-                <Textarea
-                  id="venue-instructions"
-                  value={wedding.venueInstructions}
-                  onChange={(e) =>
-                    setWedding({
-                      ...wedding,
-                      venueInstructions: e.target.value,
-                    })
-                  }
-                />
-              </label>
-              <label htmlFor="maps-url">
-                Link do mapa
-                <Input
-                  id="maps-url"
-                  type="url"
-                  value={wedding.mapsUrl}
-                  onChange={(e) =>
-                    setWedding({ ...wedding, mapsUrl: e.target.value })
-                  }
-                  placeholder="https://maps.google.com/..."
-                />
-              </label>
+              <div className="location-admin-grid">
+                <fieldset className="location-fieldset">
+                  <legend>Cerimônia / igreja</legend>
+                  <p id="ceremony-map-help">
+                    O mapa é gerado pelo endereço. O link do Google Maps é
+                    opcional e será usado no botão de rota.
+                  </p>
+                  <label htmlFor="ceremony-name">
+                    Nome da igreja ou local
+                    <Input
+                      id="ceremony-name"
+                      value={wedding.ceremonyName}
+                      onChange={(e) =>
+                        setWedding({
+                          ...wedding,
+                          ceremonyName: e.target.value,
+                        })
+                      }
+                    />
+                  </label>
+                  <label htmlFor="ceremony-address">
+                    Endereço completo
+                    <Input
+                      aria-describedby="ceremony-map-help"
+                      id="ceremony-address"
+                      value={wedding.ceremonyAddress}
+                      onChange={(e) =>
+                        setWedding({
+                          ...wedding,
+                          ceremonyAddress: e.target.value,
+                        })
+                      }
+                      placeholder="Rua, número, bairro, cidade e estado"
+                    />
+                  </label>
+                  <label htmlFor="ceremony-instructions">
+                    Orientações
+                    <Textarea
+                      id="ceremony-instructions"
+                      value={wedding.ceremonyInstructions}
+                      onChange={(e) =>
+                        setWedding({
+                          ...wedding,
+                          ceremonyInstructions: e.target.value,
+                        })
+                      }
+                      placeholder="Estacionamento, chegada antecipada..."
+                    />
+                  </label>
+                  <label htmlFor="ceremony-maps-url">
+                    Link do mapa (opcional)
+                    <Input
+                      id="ceremony-maps-url"
+                      type="url"
+                      value={wedding.ceremonyMapsUrl}
+                      onChange={(e) =>
+                        setWedding({
+                          ...wedding,
+                          ceremonyMapsUrl: e.target.value,
+                        })
+                      }
+                      placeholder="https://maps.app.goo.gl/..."
+                    />
+                  </label>
+                </fieldset>
+
+                <fieldset className="location-fieldset">
+                  <legend>Recepção / evento</legend>
+                  <p id="reception-map-help">
+                    Informe o endereço completo para exibir o segundo mapa aos
+                    convidados.
+                  </p>
+                  <label htmlFor="venue-name">
+                    Nome do espaço
+                    <Input
+                      id="venue-name"
+                      value={wedding.venueName}
+                      onChange={(e) =>
+                        setWedding({ ...wedding, venueName: e.target.value })
+                      }
+                      required
+                    />
+                  </label>
+                  <label htmlFor="venue-address">
+                    Endereço completo
+                    <Input
+                      aria-describedby="reception-map-help"
+                      id="venue-address"
+                      value={wedding.venueAddress}
+                      onChange={(e) =>
+                        setWedding({ ...wedding, venueAddress: e.target.value })
+                      }
+                      placeholder="Rua, número, bairro, cidade e estado"
+                      required
+                    />
+                  </label>
+                  <label htmlFor="venue-instructions">
+                    Orientações
+                    <Textarea
+                      id="venue-instructions"
+                      value={wedding.venueInstructions}
+                      onChange={(e) =>
+                        setWedding({
+                          ...wedding,
+                          venueInstructions: e.target.value,
+                        })
+                      }
+                      placeholder="Horário de início, estacionamento..."
+                    />
+                  </label>
+                  <label htmlFor="maps-url">
+                    Link do mapa (opcional)
+                    <Input
+                      id="maps-url"
+                      type="url"
+                      value={wedding.mapsUrl}
+                      onChange={(e) =>
+                        setWedding({ ...wedding, mapsUrl: e.target.value })
+                      }
+                      placeholder="https://maps.app.goo.gl/..."
+                    />
+                  </label>
+                </fieldset>
+              </div>
               <div className="admin-subsection">
                 <div>
                   <h3>Recebimento por Pix</h3>

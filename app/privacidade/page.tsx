@@ -45,6 +45,15 @@ export default function PrivacyPage() {
           operação e às obrigações legais. Não vendemos dados pessoais.
         </p>
 
+        <h2>Mapas</h2>
+        <p>
+          As páginas de localização carregam mapas incorporados do Google Maps.
+          Ao visualizar esses mapas, o Google pode receber dados técnicos do
+          navegador, como endereço IP e informações do dispositivo, de acordo
+          com as próprias políticas do serviço. Também oferecemos um link para
+          abrir cada rota diretamente no aplicativo de mapas.
+        </p>
+
         <h2>Seus direitos</h2>
         <p>
           Você pode pedir confirmação do tratamento, acesso, correção ou

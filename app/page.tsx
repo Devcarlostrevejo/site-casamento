@@ -1,15 +1,20 @@
 import {
   ArrowDown,
   CalendarDays,
+  Church,
   Clock3,
+  ExternalLink,
   MapPin,
+  PartyPopper,
   Sparkles,
 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { GiftList } from '@/components/gift-list';
+import { WeddingCountdown } from '@/components/wedding-countdown';
 import { getPublicContent } from '@/db/queries';
 import { isAsaasConfigured } from '@/lib/asaas';
+import { mapEmbedUrl, mapExternalUrl } from '@/lib/maps';
 
 function eventParts(iso: string, timeZone: string) {
   const date = new Date(iso);
@@ -36,6 +41,30 @@ function eventParts(iso: string, timeZone: string) {
   };
 }
 
+function LocationMap({ kind, src }: { kind: string; src: string }) {
+  if (kind === 'Cerimônia') {
+    return (
+      <iframe
+        allowFullScreen
+        loading="lazy"
+        referrerPolicy="no-referrer-when-downgrade"
+        src={src}
+        title="Mapa interativo da cerimônia"
+      />
+    );
+  }
+
+  return (
+    <iframe
+      allowFullScreen
+      loading="lazy"
+      referrerPolicy="no-referrer-when-downgrade"
+      src={src}
+      title="Mapa interativo da recepção"
+    />
+  );
+}
+
 export const dynamic = 'force-dynamic';
 
 export default async function Home() {
@@ -54,16 +83,28 @@ export default async function Home() {
     {
       icon: Clock3,
       eyebrow: 'O horário',
-      title: `Cerimônia às ${date.time}`,
-      copy: wedding.venueInstructions,
-    },
-    {
-      icon: MapPin,
-      eyebrow: 'O lugar',
-      title: wedding.venueName,
-      copy: wedding.venueAddress,
+      title: 'Cerimônia às ' + date.time,
+      copy: 'Programe-se para chegar com tranquilidade e aproveitar cada momento.',
     },
   ];
+  const locations = [
+    {
+      kind: 'Cerimônia',
+      icon: Church,
+      name: wedding.ceremonyName,
+      address: wedding.ceremonyAddress,
+      instructions: wedding.ceremonyInstructions,
+      mapsUrl: wedding.ceremonyMapsUrl,
+    },
+    {
+      kind: 'Recepção',
+      icon: PartyPopper,
+      name: wedding.venueName,
+      address: wedding.venueAddress,
+      instructions: wedding.venueInstructions,
+      mapsUrl: wedding.mapsUrl,
+    },
+  ].filter((location) => location.name.trim() || location.address.trim());
 
   return (
     <>
@@ -86,6 +127,9 @@ export default async function Home() {
         <nav aria-label="Navegação principal">
           <a href="#historia">Nossa história</a>
           <a href="#detalhes">O grande dia</a>
+          <a className="nav-locations" href="#locais">
+            Locais
+          </a>
           <a className="nav-gift" href="#presentes">
             Presentear
           </a>
@@ -127,6 +171,11 @@ export default async function Home() {
           </div>
         </section>
 
+        <WeddingCountdown
+          dateLabel={date.fullDate + ', às ' + date.time}
+          eventAt={wedding.eventAt}
+        />
+
         <section className="story-section" id="historia">
           <div className="story-number" aria-hidden="true">
             {date.day}
@@ -155,19 +204,84 @@ export default async function Home() {
                 <p className="detail-eyebrow">{eyebrow}</p>
                 <h3>{title}</h3>
                 <p>{copy}</p>
-                {eyebrow === 'O lugar' && wedding.mapsUrl && (
-                  <a
-                    className="detail-link"
-                    href={wedding.mapsUrl}
-                    rel="noopener noreferrer"
-                    target="_blank"
-                  >
-                    Abrir no mapa
-                  </a>
-                )}
               </article>
             ))}
           </div>
+          {locations.length > 0 && (
+            <div className="locations-block" id="locais">
+              <div className="locations-heading">
+                <div>
+                  <p className="eyebrow">Como chegar</p>
+                  <h2>Cerimônia e recepção</h2>
+                </div>
+                <p>
+                  Confira cada endereço e abra a rota no aplicativo de mapas do
+                  seu celular.
+                </p>
+              </div>
+              <div
+                className={
+                  locations.length === 1
+                    ? 'venue-grid venue-grid-single'
+                    : 'venue-grid'
+                }
+              >
+                {locations.map(
+                  ({
+                    kind,
+                    icon: Icon,
+                    name,
+                    address,
+                    instructions,
+                    mapsUrl,
+                  }) => {
+                    const routeQuery = [name, address]
+                      .filter(Boolean)
+                      .join(', ');
+                    const routeUrl = mapExternalUrl(mapsUrl, routeQuery);
+                    return (
+                      <article className="venue-card" key={kind}>
+                        <div className="venue-copy">
+                          <div className="venue-title-row">
+                            <Icon aria-hidden="true" />
+                            <p className="venue-eyebrow">{kind}</p>
+                          </div>
+                          <h3>{name || kind}</h3>
+                          {address && <address>{address}</address>}
+                          {instructions && <p>{instructions}</p>}
+                          {(address || mapsUrl) && (
+                            <a
+                              aria-label={
+                                'Abrir mapa da ' +
+                                kind.toLowerCase() +
+                                ' em nova aba'
+                              }
+                              className="venue-link"
+                              href={routeUrl}
+                              rel="noopener noreferrer"
+                              target="_blank"
+                            >
+                              <MapPin aria-hidden="true" />
+                              Abrir rota
+                              <ExternalLink aria-hidden="true" />
+                            </a>
+                          )}
+                        </div>
+                        {address && (
+                          <div className="venue-map">
+                            <LocationMap
+                              kind={kind}
+                              src={mapEmbedUrl(routeQuery)}
+                            />
+                          </div>
+                        )}
+                      </article>
+                    );
+                  },
+                )}
+              </div>
+            </div>
+          )}
         </section>
 
         <section className="gifts-section" id="presentes">
